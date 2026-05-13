@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบแจ้งชำระเงิน</title>
+  <!-- ดึง Bootstrap มาใช้ -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- ดึง LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+     /* โทนสี Official Light Mode สว่าง สะอาดตา ดูเป็นทางการ */
+     body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+     .container { 
+       max-width: 450px; 
+       margin: 30px auto; 
+       background: #ffffff; 
+       padding: 30px; 
+       border-radius: 8px; 
+       box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+       border-top: 5px solid #00c300; 
+     }
+     #profileImg { 
+       width: 80px; 
+       height: 80px; 
+       border-radius: 50%; 
+       object-fit: cover; 
+       border: 3px solid #f1f1f1; 
+     }
+     .btn-line { background-color: #00c300; color: white; font-weight: bold; border-radius: 6px; }
+     .btn-line:hover { background-color: #00a000; color: white; }
+     .form-label { font-weight: 600; color: #333; }
+     .text-muted { color: #6c757d !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="text-center mb-4">
+      <img id="profileImg" src="" alt="Profile" style="display:none;">
+      <h5 class="mt-3 fw-bold" id="displayName" style="color: #212529;">กำลังโหลดข้อมูล...</h5>
+      <p class="text-muted small">ฟอร์มส่งสลิปโอนเงิน</p>
+    </div>
+
+    <form id="paymentForm">
+      <div class="mb-3">
+        <label for="orderNo" class="form-label">หมายเลขอ้างอิง / ออเดอร์</label>
+        <input type="text" class="form-control" id="orderNo" placeholder="เช่น ORD-1234" required>
+      </div>
+      <div class="mb-3">
+        <label for="amount" class="form-label">ยอดเงินที่โอน (บาท)</label>
+        <input type="number" class="form-control" id="amount" step="0.01" placeholder="เช่น 500.00" required>
+      </div>
+      <div class="mb-4">
+        <label for="slipImage" class="form-label">อัปโหลดรูปภาพสลิป</label>
+        <input class="form-control" type="file" id="slipImage" accept="image/jpeg, image/png" required>
+      </div>
+      <button type="button" class="btn btn-line w-100 py-2" id="btnSubmit" onclick="submitForm()">ส่งข้อมูลแจ้งโอน</button>
+    </form>
+  </div>
+
+  <script>
+    let userId = "";
+    let displayName = "";
+
+    // โหมดดักจับ Error
+    async function main() {
+      try {
+        await liff.init({ liffId: "2010078427-sDePL2Nt" }); 
+        
+        if (liff.isLoggedIn()) {
+          await getUserProfile();
+        } else {
+          liff.login();
+        }
+      } catch (err) {
+        // เปลี่ยนจาก JSON.stringify(err) เป็น err.code และ err.message
+        alert("🚨 ติดปัญหาที่ระบบ LIFF: " + err.code + " - " + err.message);
+        document.getElementById("displayName").innerText = "เชื่อมต่อ LIFF ไม่สำเร็จ";
+      }
+    }
+
+    async function getUserProfile() {
+      try {
+        const profile = await liff.getProfile();
+        userId = profile.userId;
+        displayName = profile.displayName;
+        document.getElementById("displayName").innerText = "คุณ " + displayName;
+        document.getElementById("profileImg").src = profile.pictureUrl;
+        document.getElementById("profileImg").style.display = "inline-block";
+      } catch (err) {
+        alert("🚨 ติดปัญหาการดึงโปรไฟล์ (Profile Error): " + JSON.stringify(err));
+        document.getElementById("displayName").innerText = "ดึงข้อมูลโปรไฟล์ไม่ได้";
+      }
+    }
+
+    main();
+
+    function getBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    }
+
+    async function submitForm() {
+      if(!userId) {
+        alert("❌ ไม่สามารถส่งข้อมูลได้ เพราะระบบยังดึง User ID ของคุณไม่สำเร็จครับ");
+        return;
+      }
+
+      const orderNo = document.getElementById('orderNo').value;
+      const amount = document.getElementById('amount').value;
+      const fileInput = document.getElementById('slipImage');
+
+      if(!orderNo || !amount || fileInput.files.length === 0) {
+        alert('กรุณากรอกข้อมูลและแนบสลิปให้ครบถ้วนครับ');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.innerText = "กำลังตรวจสอบและส่งสลิป...";
+
+      const file = fileInput.files[0];
+      const base64Image = await getBase64(file);
+
+      const formData = {
+        userId: userId,
+        displayName: displayName,
+        orderNo: orderNo,
+        amount: amount,
+        imageBase64: base64Image
+      };
+
+      // ⚠️ นำ Web App URL ของคุณมาใส่ตรงนี้ (ลิงก์ที่ลงท้ายด้วย /exec)
+      const GAS_URL = "https://script.google.com/macros/s/AKfycbysGrdHmbPJjmlH8DCxhwZHoX_U7Pn0Rwe7dXLuUwWEX5pzMvo2z9j9skEDW33RGsEo4w/exec";
+
+      try {
+        const response = await fetch(GAS_URL, {
+          method: 'POST',
+          body: JSON.stringify(formData),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          }
+        });
+
+        const result = await response.json();
+
+        if(result.success) {
+          alert('แจ้งชำระเงินสำเร็จ! สถานะ: ' + result.slipStatus);
+          liff.closeWindow(); 
+        } else {
+          alert('เกิดข้อผิดพลาด: ' + result.message);
+          btn.disabled = false;
+          btn.innerText = "ส่งข้อมูลแจ้งโอน";
+        }
+      } catch(err) {
+        alert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: ' + err.message);
+        btn.disabled = false;
+        btn.innerText = "ส่งข้อมูลแจ้งโอน";
+      }
+    }
+
+      const btn = document.getElementById('btnSubmit');
+      btn.disabled = true;
+      btn.innerText = "กำลังตรวจสอบและส่งสลิป...";
+
+      const file = fileInput.files[0];
+      const base64Image = await getBase64(file);
+
+      const formData = {
+        userId: userId,
+        displayName: displayName,
+        orderNo: orderNo,
+        amount: amount,
+        imageBase64: base64Image
+      };
+
+      google.script.run.withSuccessHandler(function(response) {
+        if(response.success) {
+          alert('แจ้งชำระเงินสำเร็จ! สถานะ: ' + response.slipStatus);
+          liff.closeWindow(); 
+        } else {
+          alert('เกิดข้อผิดพลาด: ' + response.message);
+          btn.disabled = false;
+          btn.innerText = "ส่งข้อมูลแจ้งโอน";
+        }
+      }).processPayment(formData);
+    }
+  </script>
+</body>
+</html>
