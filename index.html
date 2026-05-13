@@ -62,7 +62,6 @@
     let userId = "";
     let displayName = "";
 
-    // โหมดดักจับ Error
     async function main() {
       try {
         await liff.init({ liffId: "2010078427-sDePL2Nt" }); 
@@ -73,8 +72,7 @@
           liff.login();
         }
       } catch (err) {
-        // เปลี่ยนจาก JSON.stringify(err) เป็น err.code และ err.message
-        alert("🚨 ติดปัญหาที่ระบบ LIFF: " + err.code + " - " + err.message);
+        alert("🚨 ติดปัญหาที่ระบบ LIFF: " + err.message);
         document.getElementById("displayName").innerText = "เชื่อมต่อ LIFF ไม่สำเร็จ";
       }
     }
@@ -88,8 +86,8 @@
         document.getElementById("profileImg").src = profile.pictureUrl;
         document.getElementById("profileImg").style.display = "inline-block";
       } catch (err) {
-        alert("🚨 ติดปัญหาการดึงโปรไฟล์ (Profile Error): " + JSON.stringify(err));
-        document.getElementById("displayName").innerText = "ดึงข้อมูลโปรไฟล์ไม่ได้";
+        alert("🚨 ดึงข้อมูลโปรไฟล์ไม่ได้: " + err.message);
+        document.getElementById("displayName").innerText = "ดึงข้อมูลไม่ได้";
       }
     }
 
@@ -134,7 +132,6 @@
         imageBase64: base64Image
       };
 
-      // ⚠️ นำ Web App URL ของคุณมาใส่ตรงนี้ (ลิงก์ที่ลงท้ายด้วย /exec)
       const GAS_URL = "https://script.google.com/macros/s/AKfycbysGrdHmbPJjmlH8DCxhwZHoX_U7Pn0Rwe7dXLuUwWEX5pzMvo2z9j9skEDW33RGsEo4w/exec";
 
       try {
@@ -161,33 +158,6 @@
         btn.disabled = false;
         btn.innerText = "ส่งข้อมูลแจ้งโอน";
       }
-    }
-
-      const btn = document.getElementById('btnSubmit');
-      btn.disabled = true;
-      btn.innerText = "กำลังตรวจสอบและส่งสลิป...";
-
-      const file = fileInput.files[0];
-      const base64Image = await getBase64(file);
-
-      const formData = {
-        userId: userId,
-        displayName: displayName,
-        orderNo: orderNo,
-        amount: amount,
-        imageBase64: base64Image
-      };
-
-      google.script.run.withSuccessHandler(function(response) {
-        if(response.success) {
-          alert('แจ้งชำระเงินสำเร็จ! สถานะ: ' + response.slipStatus);
-          liff.closeWindow(); 
-        } else {
-          alert('เกิดข้อผิดพลาด: ' + response.message);
-          btn.disabled = false;
-          btn.innerText = "ส่งข้อมูลแจ้งโอน";
-        }
-      }).processPayment(formData);
     }
   </script>
 </body>
